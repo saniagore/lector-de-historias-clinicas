@@ -1,0 +1,5 @@
+fpdf
+requests
+opencv-python
+numpy
+Pillow
