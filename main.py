@@ -131,28 +131,7 @@ def create_pdf_from_text_results(results, output_filename):
             pdf.ln(4)
 
         # 2. MOTIVO DE CONSULTA
-        val_motivo_p = clean_str(data.get('motivo_consulta_paciente', 'No registrado'))
-        val_motivo_m = clean_str(data.get('motivo_consulta_medico', 'No registrado'))
-        
-        has_p = val_motivo_p.lower() not in ['no detectado', 'no registrado', 'error gemini']
-        has_m = val_motivo_m.lower() not in ['no detectado', 'no registrado', 'error gemini']
-        
-        if has_p or has_m:
-            pdf.set_text_color(*PRIMARY_COLOR)
-            pdf.set_fill_color(*SECONDARY_COLOR)
-            pdf.set_font("helvetica", 'B', 10)
-            pdf.cell(0, 7, " 2. MOTIVO DE CONSULTA", new_x="LMARGIN", new_y="NEXT", fill=True, border=0)
-            
-            pdf.set_font("helvetica", size=9)
-            pdf.set_text_color(40, 40, 40)
-            if has_p:
-                pdf.set_font("helvetica", 'I', 9)
-                pdf.multi_cell(0, 5, f"Paciente: {val_motivo_p}", new_x="LMARGIN", new_y="NEXT")
-                pdf.ln(1)
-            if has_m:
-                pdf.set_font("helvetica", size=9)
-                pdf.multi_cell(0, 5, f"Médico: {val_motivo_m}", new_x="LMARGIN", new_y="NEXT")
-            pdf.ln(4)
+        draw_numbered_section("2", "MOTIVO DE CONSULTA", data.get('motivo_consulta', 'No registrado'))
 
         # 3. ENFERMEDAD ACTUAL
         draw_numbered_section("3", "ENFERMEDAD ACTUAL", data.get('enfermedad_actual', ''))
@@ -269,16 +248,16 @@ def create_pdf_from_text_results(results, output_filename):
     print(f"PDF generado con éxito: {output_filename}")
 
 def generate_from_folder(input_folder, output_file, api_key):
-    print("Iniciando procesamiento con Google Gemini API...")
+    print("Iniciando procesamiento con el Motor de Inteligencia Artificial Médico...")
     ocr_results = process_images_in_folder(input_folder, api_key)
 
     if not ocr_results:
         print("No se encontraron imágenes para procesar.")
-        return False
+        return False, None
 
     print(f"Generando PDF: {output_file}...")
     create_pdf_from_text_results(ocr_results, output_file)
-    return True
+    return True, ocr_results
 
 def main():
     INPUT_FOLDER = 'imagenes_entrada'

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de control - Médicos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; background: #f8fafc; }</style>
+</head>
+<body class="min-h-screen">
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-blue-600 font-bold text-xl tracking-tight">IA Médica</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm font-medium text-gray-600">{{ name }}</span>
+                    <a href="/logout" class="text-sm font-medium text-red-500 hover:text-red-700">Cerrar Sesión</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Historial de Pacientes</h1>
+                <p class="mt-1 text-sm text-gray-500">Administra todas las historias clínicas que has extraído y procesado con Inteligencia Artificial.</p>
+            </div>
+            <a href="/upload_ui" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                <svg class="mr-2 -ml-1 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Procesar Nueva Historia
+            </a>
+        </div>
+
+        <!-- Tabla -->
+        <div class="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-xl overflow-hidden">
+            {% if historias %}
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Paciente</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Identificación</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Diagnóstico</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Fecha de Proceso</th>
+                        <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right font-medium">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white">
+                    {% for h in historias %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{{ h.paciente }}</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ h.identificacion }}</td>
+                        <td class="px-3 py-4 text-sm text-gray-500 max-w-xs truncate">{{ h.diagnostico }}</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{ h.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                            <a href="/view/{{ h._id }}" class="text-indigo-600 hover:text-indigo-900 mr-4 font-bold">Ver Detalles</a>
+                            <form action="/delete/{{ h._id }}" method="POST" class="inline" onsubmit="return confirm('¿Seguro que deseas eliminar el expediente de {{ h.paciente }} permanentemente? Esta acción es irreversible.');">
+                                <button type="submit" class="text-red-600 hover:text-red-900 font-bold transition-colors">Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-16">
+                <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">Sin pacientes en la base de datos</h3>
+                <p class="mt-1 text-sm text-gray-500">Empieza procesando la primera historia clínica en el botón azul superior.</p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

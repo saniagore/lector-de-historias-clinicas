@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro - Plataforma Médica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; background: #f0f4f8; }</style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">Nueva Licencia Médica</h2>
+            <p class="text-sm text-gray-500 mt-2">Crea cuenta para almacenar y procesar historias clínicas</p>
+        </div>
+
+        {% with messages = get_flashed_messages(category_filter=["error"]) %}
+          {% if messages %}
+            <div class="mb-4 bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center">
+              {{ messages[0] }}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <form action="/register" method="POST" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Nombre Completo del Especialista</label>
+                <input type="text" name="name" required class="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Correo Electrónico Laboral</label>
+                <input type="email" name="email" required class="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Contraseña Segura</label>
+                <input type="password" name="password" required class="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button type="submit" class="w-full bg-gray-900 hover:bg-black text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                Verificar y Crear Cuenta
+            </button>
+        </form>
+        <p class="mt-6 text-center text-sm text-gray-500">
+            ¿Ya eres miembro? <a href="/login" class="text-blue-600 font-medium hover:underline">Ingresa aquí</a>
+        </p>
+    </div>
+</body>
+</html>

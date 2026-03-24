@@ -7,3 +7,7 @@ google-generativeai
 Flask
 werkzeug
 python-dotenv
+pymongo
+Flask-Login
+flask-bcrypt
+dnspython
