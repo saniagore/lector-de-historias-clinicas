@@ -1,5 +1,9 @@
-fpdf
+fpdf2
 requests
 opencv-python
 numpy
 Pillow
+google-generativeai
+Flask
+werkzeug
+python-dotenv
