@@ -49,11 +49,11 @@ def clear_upload_folder():
 MONGO_URI = os.getenv("MONGO_URI", "")
 db = None
 try:
-    if MONGO_URI and "cluster" in MONGO_URI or "localhost" in MONGO_URI:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        client.admin.command('ping') # Test conexión
+    if MONGO_URI:
+        # Initializing lazily. Ping is removed so cold-starts don't block.
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connect=False)
         db = client.get_database("clinica_db")
-        print("MongoDB Conectado Exitosamente!")
+        print("MongoDB Configurado Exitosamente a la espera de peticiones!")
 except Exception as e:
     print(f"ATENCIÓN: MongoDB NO está conectado. Verifica tu MONGO_URI. Error: {e}")
 

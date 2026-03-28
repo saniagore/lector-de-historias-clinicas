@@ -47,17 +47,143 @@ def process_images_in_folder(folder_path, api_key):
         print("\nTodos los archivos cargados en el nodo central. Extrayendo datos unificados...")
         
         prompt = f"""
-        Eres el Motor Central de una plataforma médica, un asistente especializado en extraer historias clínicas sin errores.
+        Eres el Motor Central de una plataforma médica de alta precisión, especializado en extraer y estructurar historias clínicas.
         A continuación se te proporcionan {len(files)} imágenes o documentos que pertenecen a la MISMA HISTORIA CLÍNICA de un ÚNICO paciente.
         Lee todos los documentos como si fueran páginas de un solo expediente unificado.
-        
-        REGLA CRÍTICA N°1 (FECHAS):
-        Es de vital urgencia médica que respetes las fechas EXACTAS de las consultas. Busca siempre la FECHA REAL (dd/mm/aaaa o YYYY/MM/DD) escrita en cada hoja de evolución, laboratorio o triaje. No puedes inventar, deducir ni usar la fecha en la que estás respondiendo. Si un documento tiene datos de hace 3 días, pon esa fecha textual. Si un paciente tiene varias evoluciones en diferentes días, mapea estrictamente cada revisión a su fecha real sin omitir ninguna.
 
-        REGLA CRÍTICA N°2 (UNIFICACIÓN): 
-        Extrae de TODOS los documentos la información más importante del paciente unificando los datos cronológicamente y en conjunto.
+        ════════════════════════════════════════════════
+        REGLA CRÍTICA N°1 — FECHAS
+        ════════════════════════════════════════════════
+        Respeta las fechas EXACTAS escritas en cada hoja. Nunca inventes ni uses la fecha actual.
+        Si hay múltiples evoluciones en distintos días, mapea cada una a su fecha real.
 
-        Debes devolver ÚNICAMENTE un objeto JSON válido con la siguiente estructura (reemplaza los valores con la información combinada extraída):
+        ════════════════════════════════════════════════
+        REGLA CRÍTICA N°2 — MAPEO SEMÁNTICO DE SECCIONES
+        ════════════════════════════════════════════════
+        Las historias clínicas en la práctica NO siempre usan los mismos nombres de sección.
+        DEBES reconocer cada sección por su CONTENIDO y por cualquiera de sus ALIAS conocidos:
+
+        ┌─────────────────────────────────────────────────────────────────────────────┐
+        │ CAMPO JSON          │ ALIAS / ENCABEZADOS QUE LO IDENTIFICAN               │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ motivo_consulta     │ "Motivo de Consulta", "MC", "CC" (Chief Complaint),   │
+        │                     │ "S" o "Subjetivo" (en formato SOAP), "Queja",         │
+        │                     │ "Razón de Consulta", "Por qué consulta",              │
+        │                     │ "Motivo de ingreso", "Jefe de queja"                  │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ enfermedad_actual   │ "Enfermedad Actual", "HEA", "Historia de la           │
+        │                     │ Enfermedad Actual", "Historia de la Enfermedad",      │
+        │                     │ "O" u "Objetivo" (en formato SOAP), "EA",             │
+        │                     │ "Anamnesis", "Historia de la presente enfermedad"     │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ revision_sistemas   │ "Revisión por Sistemas", "RPS", "RxS", "RS",          │
+        │                     │ "Interrogatorio por Aparatos y Sistemas",             │
+        │                     │ "Por Aparatos", "Sistemas", "Anamnesis por Sistemas"  │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ examenes_fisicos    │ "Examen Físico", "EF", "Exploración Física",          │
+        │                     │ "Exploración", "Físico", "Hallazgos al Examen",       │
+        │                     │ "Hallazgos Físicos", "Examen Clínico"                 │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ analisis_medico     │ "Análisis", "A" (en formato SOAP), "Assessment",      │
+        │                     │ "Impresión Clínica", "Razonamiento Clínico",          │
+        │                     │ "Discusión", "Nota de Evolución", "Evolución",        │
+        │                     │ "Síntesis Clínica", "Nota Médica", "Notas"            │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ diagnostico         │ "Diagnóstico", "Dx", "Impresión Diagnóstica",         │
+        │                     │ "Impresiones", "Diagnósticos", "CIE-10",              │
+        │                     │ "Diagnóstico Presuntivo", "Diagnóstico Definitivo"    │
+        ├─────────────────────┼──────────────────────────────────────────────────────┤
+        │ plan_tratamiento    │ "Plan", "P" (en formato SOAP), "Plan de Manejo",      │
+        │                     │ "Conducta", "Tratamiento", "Manejo", "Indicaciones",  │
+        │                     │ "Prescripción", "Formulación", "Orden Médica"         │
+        └─────────────────────┴──────────────────────────────────────────────────────┘
+
+        ════════════════════════════════════════════════
+        REGLA CRÍTICA N°3 — INFERENCIA POR CONTENIDO (sin etiquetas)
+        ════════════════════════════════════════════════
+        Cuando la historia NO tiene etiquetas claras de sección, identifica cada bloque por
+        CÓMO está escrito y QUÉ tipo de información contiene:
+
+        → motivo_consulta:
+          Es muy corto (1-3 líneas). Es la razón principal expresada por el paciente o el médico.
+          Ejemplos: "Dolor abdominal", "Control post-quirúrgico", "Fiebre y tos de 3 días".
+
+        → enfermedad_actual:
+          Es un texto CORTO-MEDIANO (no el más largo). Describe al paciente en tercera persona
+          con datos clínicos concretos: género, edad, tiempo de evolución, síntoma principal,
+          intensidad. Usa frases como "Paciente femenino de X años que consulta por...",
+          "Paciente masculino que acude refiriendo..." o similar.
+          IMPORTANTE: NO incluye lo que el médico examina, solo la presentación del caso.
+
+        → revision_sistemas:
+          Captura TODO lo que el paciente SIENTE o PERCIBE subjetivamente.
+          Esto incluye cualquier síntoma, molestia, sensación o percepción que el paciente reporta
+          o experimenta por sí mismo, independientemente de cómo esté escrito.
+          Ejemplos: dolor, náuseas, mareo, fiebre sentida, cansancio, falta de aire, palpitaciones,
+          ardor, hormigueo, pérdida de apetito, sueño alterado, tristeza, ansiedad, etc.
+          Frases clave del redactor: "refiere", "niega", "presenta", "dice que", "manifiesta",
+          "no refiere", "siente", "nota", "percibe", "le duele", "tiene".
+          PRINCIPIO FUNDAMENTAL: Si el origen de la información es el PACIENTE (lo que él siente
+          o dice sentir), va aquí. No importa si el médico lo transcribe, la fuente es subjetiva.
+
+        → examenes_fisicos:
+          Captura TODO lo que es ANALIZADO, MEDIDO o DIAGNOSTICADO por el médico mediante
+          algún tipo de exploración o examen clínico directo sobre el paciente.
+          Esto incluye: signos vitales medidos (TA, FC, FR, Temperatura, SatO2, Glasgow, IMC,
+          peso, talla), hallazgos a la inspección, palpación, percusión y auscultación,
+          evaluación neurológica (ADI, reflejos, sensibilidad), exploración de piel y mucosas,
+          evaluación de edemas, ruidos cardíacos o intestinales, movilidad articular, etc.
+          Frases clave: "a la inspección", "a la palpación", "a la auscultación", "se evidencia",
+          "se observa", "se encuentra", "presenta al examen", "TA:", "FC:", "Glasgow:", "ADI:".
+          PRINCIPIO FUNDAMENTAL: Si la información proviene de un acto médico (el médico lo
+          mide, lo observa, lo palpa, lo ausculta o lo evalúa), va aquí. Es objetivo y externo
+          al paciente.
+
+        → analisis_medico:
+          Es el texto MÁS LARGO del documento. Integra el razonamiento clínico del médico:
+          hipótesis diagnósticas, correlación de hallazgos, justificación de exámenes a pedir,
+          evolución esperada, y decisiones terapéuticas. Es la "síntesis" del médico tratante.
+
+        ════════════════════════════════════════════════
+        REGLA CRÍTICA N°4 — DETECCIÓN Y ELIMINACIÓN ESTRICTA DE DUPLICADOS
+        ════════════════════════════════════════════════
+        ANTES DE CONSTRUIR EL JSON, debes hacer un ANÁLISIS ANTI-DUPLICACIÓN de la siguiente manera:
+
+        PASO 1 — DETECTAR DUPLICADOS:
+        Identifica cualquier fragmento, oración o dato que aparezca más de una vez en el documento
+        fuente (ya sea textualmente idéntico o expresado con palabras distintas pero con el mismo
+        significado clínico). Ejemplos de duplicados comunes:
+          • El nombre del paciente o su edad aparece en la enfermedad_actual Y en el análisis_medico.
+          • Los signos vitales se mencionan en la revisión por sistemas Y en el examen físico.
+          • El motivo de consulta se repite dentro de la enfermedad_actual.
+          • Un síntoma como "fiebre de 3 días" aparece en motivo_consulta Y en revisión_sistemas.
+          • Un diagnóstico ya presente en "diagnostico" se vuelve a mencionar en "analisis_medico".
+
+        PASO 2 — ASIGNAR UNA SOLA VEZ:
+        Cada dato o fragmento con contenido duplicado debe aparecer ÚNICAMENTE en el campo
+        más específico y apropiado para él. NO lo copies en ningún otro campo del JSON.
+        La jerarquía de prioridad cuando un contenido podría encajar en más de un campo:
+          1° examenes_fisicos  (más específico: el médico lo midió o exploró)
+          2° revision_sistemas (el paciente lo siente o percibe)
+          3° motivo_consulta   (razón puntual de la visita)
+          4° enfermedad_actual (contexto clínico general del paciente)
+          5° analisis_medico   (solo lo que es razonamiento del médico, no datos ya catalogados)
+
+        PASO 3 — VERIFICAR ANTES DE FINALIZAR:
+        Antes de entregar el JSON, recorre mentalmente cada campo y pregúntate:
+          ¿Este contenido ya aparece en otro campo? → Si la respuesta es SÍ, elimínalo de aquí.
+          ¿Este campo agrega información NUEVA que no está en ningún otro campo? → Si es NO, vacíalo.
+        El JSON final NO debe contener ninguna oración, dato clínico o fragmento que se repita
+        en más de un campo. Cada campo debe aportar información EXCLUSIVA y ÚNICA.
+
+        ════════════════════════════════════════════════
+        REGLA CRÍTICA N°5 — UNIFICACIÓN CRONOLÓGICA
+        ════════════════════════════════════════════════
+        Extrae de TODOS los documentos la información del paciente, unificando datos
+        cronológicamente. Si hay múltiples fechas de evolución, captura CADA UNA como
+        un ítem separado en los arrays (revision_sistemas, examenes_fisicos, paraclinicos).
+
+        Devuelve ÚNICAMENTE el siguiente objeto JSON válido con los datos extraídos:
         {{
             "texto_completo": "Todo el texto puro que logres leer u OCR de los documentos. No resumas, devuelve el texto plano tal cual está.",
             "datos": {{
@@ -72,35 +198,35 @@ def process_images_in_folder(folder_path, api_key):
                 "contrato": "Ejemplo: EPS SURA CONTRIBUTIVO",
                 "municipio": "Ciudad o municipio de atención",
                 "direccion": "Dirección completa del paciente",
-                "motivo_consulta": "El motivo de consulta textual o manifestado, sin importar si tiene comillas o lo anota el médico (Ej: 'vine porque me partí el brazo' o 'evaluación de control'). Es el por qué directo de la cita.",
-                "enfermedad_actual": "La descripción clínica detallada del problema una vez interrogado el paciente (Ej: 'Paciente masculino de 20 años que refiere traumatismo en antebrazo tras caída... dolor 9/10').",
+                "motivo_consulta": "El motivo principal de la consulta. Busca en: 'MC', 'CC', 'S', 'Subjetivo', 'Motivo de Consulta', 'Motivo de ingreso'. Si no hay etiqueta, identifícalo por ser el enunciado más breve que explica POR QUÉ acude el paciente.",
+                "enfermedad_actual": "Descripción clínica del paciente en tercera persona con edad, género y síntoma principal. Busca en: 'HEA', 'Historia Enfermedad Actual', 'EA', 'O', 'Objetivo', 'Anamnesis'. Si no hay etiqueta, identifícalo por empezar con 'Paciente [género] de [edad] años...'.",
                 "revision_sistemas": [
                     {{
-                        "fecha": "Fecha exacta de esta revisión escrita en la hoja (Ej: 03/03/2026). Si de verdad no hay, pon 'No registrada'.",
-                        "descripcion": "Detalles de la revisión por sistemas en esa fecha."
+                        "fecha": "Fecha exacta de esta revisión escrita en la hoja. Si no hay, pon 'No registrada'.",
+                        "descripcion": "Síntomas que el paciente REFIERE o NIEGA por sistema. Busca en: 'RPS', 'RxS', 'Revisión por Sistemas', 'Interrogatorio por Aparatos'. Si no hay etiqueta, identifícalo porque usa frases como 'refiere', 'niega', 'presenta' organizadas por sistemas o aparatos."
                     }}
                 ],
                 "examenes_fisicos": [
                     {{
-                        "fecha": "Fecha exacta del examen (Ej: 03/03/2026). Si no hay, pon 'No registrada'.",
-                        "signos_vitales": "Signos vitales registrados en esta fecha (Ej: TA 120/80, FC 80, etc.).",
-                        "hallazgos": "Hallazgos clínicos positivos o relevantes."
+                        "fecha": "Fecha exacta del examen. Si no hay, pon 'No registrada'.",
+                        "signos_vitales": "Signos vitales: TA, FC, FR, Temperatura, SatO2, Glasgow, peso, talla, IMC si aplica.",
+                        "hallazgos": "Hallazgos que el MÉDICO observa al examinar al paciente. Busca en: 'EF', 'Examen Físico', 'Exploración'. Si no hay etiqueta, identifícalo porque menciona 'a la palpación', 'a la auscultación', 'ruidos', 'Glasgow', 'ADI', 'edemas', 'mucosas', etc."
                     }}
                 ],
-                "analisis_medico": "Este debe ser el campo MÁS LARGO Y COMPLETO de toda la historia. Es la síntesis total del médico elaborada una vez hecho el interrogatorio, examen físico y revisión por sistemas. (Ej: 'Paciente masculino de 20 años que sufre un traumatismo... al no haber fractura abierta ni signos de síndrome compartimental se inicia manejo analgésico con AINES y se realiza radiografía en busca de fracturas...'). Describe TODO el raciocinio clínico y el abordaje propuesto.",
+                "analisis_medico": "El razonamiento clínico COMPLETO del médico. Es el campo MÁS EXTENSO. Busca en: 'Análisis', 'A', 'Assessment', 'Nota de Evolución', 'Síntesis Clínica'. Si no hay etiqueta clara, es el bloque de texto más largo que integra todos los hallazgos y justifica decisiones clínicas.",
                 "paraclinicos": [
                     {{
-                        "fecha": "Fecha exacta del laboratorio/examen (Ej: 03/03/2026).",
-                        "tipo_examen": "Nombre del examen (Ej: Hemoglobina, Glucosa, Rayos X)",
+                        "fecha": "Fecha exacta del laboratorio o examen complementario.",
+                        "tipo_examen": "Nombre del examen (Ej: Hemoglobina, Glucosa, Rayos X, Ecografía)",
                         "valor": "Valor o resultado obtenido",
                         "referencia": "Valor de referencia si está indicado"
                     }}
                 ],
-                "diagnostico": "Impresiones diagnósticas numeradas en estricto orden de importancia o jerarquía (Ej: 1. Cólico Renal 2. Embarazo). Solo lista los diagnósticos sin explicar si no es necesario.",
-                "plan_tratamiento": "Conducta, plan a seguir, tratamiento o medicamentos recetados."
+                "diagnostico": "Impresiones diagnósticas en estricto orden de importancia (Ej: 1. Cólico Renal 2. Embarazo). Busca en: 'Dx', 'Diagnóstico', 'Impresión Diagnóstica', 'CIE-10'.",
+                "plan_tratamiento": "Conducta, plan de manejo, tratamiento o medicamentos. Busca en: 'Plan', 'P', 'Conducta', 'Manejo', 'Indicaciones', 'Formulación', 'Prescripción'."
             }}
         }}
-        Si algún dato clave de los 'datos' no se encuentra, debes asignarle el valor "No detectado". El JSON debe ser perfecto sintácticamente.
+        Si un campo no se encuentra luego de aplicar todos los criterios anteriores, asígnale "No detectado". El JSON debe ser sintácticamente perfecto.
         """
         
         contents = uploaded_files + [prompt]
